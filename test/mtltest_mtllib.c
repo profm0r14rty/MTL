@@ -38,6 +38,8 @@
 #include "mtllib.h"
 #include "mtltest_test_vectors.h"
 
+#include <oqs/oqs.h>
+
 // Prototypes for testing functions
 uint8_t mtltest_mtllib_key_new(void);
 uint8_t mtltest_mtllib_key_new_null(void);
@@ -149,6 +151,13 @@ uint8_t mtltest_mtllib_key_new(void)
 	algo = 0;
 	while (sig_algos[algo].name != NULL)
 	{
+		/* Skip algorithms that are not enabled in this liboqs build */
+		OQS_SIG *test_sig = OQS_SIG_new(sig_algos[algo].scheme_str);
+		if (test_sig == NULL) {
+			algo++;
+			continue;
+		}
+		OQS_SIG_free(test_sig);
 		ctx = NULL;
 		assert(mtllib_key_new(sig_algos[algo].name, &ctx) == MTLLIB_OK);
 		assert(ctx->algo_params == &sig_algos[algo]);
@@ -225,84 +234,39 @@ uint8_t mtltest_mtllib_pubkey_from_buffer(void)
 	size_t algo = 0;
 	MTLLIB_CTX *ctx = NULL;
 	uint8_t *pubkey = NULL;
-	size_t pubkey_len[] = {
-        OQS_SIG_sphincs_shake_128s_simple_length_public_key,
-        OQS_SIG_sphincs_shake_128f_simple_length_public_key,
-        OQS_SIG_sphincs_shake_192s_simple_length_public_key,
-        OQS_SIG_sphincs_shake_192f_simple_length_public_key,
-        OQS_SIG_sphincs_shake_256s_simple_length_public_key,
-        OQS_SIG_sphincs_shake_256f_simple_length_public_key,
-        OQS_SIG_sphincs_sha2_128s_simple_length_public_key,
-        OQS_SIG_sphincs_sha2_128f_simple_length_public_key,
-        OQS_SIG_sphincs_sha2_192s_simple_length_public_key,
-        OQS_SIG_sphincs_sha2_192f_simple_length_public_key,
-        OQS_SIG_sphincs_sha2_256s_simple_length_public_key,
-        OQS_SIG_sphincs_sha2_256f_simple_length_public_key,
-        OQS_SIG_ml_dsa_44_length_public_key,
-        OQS_SIG_ml_dsa_65_length_public_key,
-        OQS_SIG_ml_dsa_87_length_public_key,
-//        OQS_SIG_falcon_512_length_public_key,
-        OQS_SIG_falcon_padded_512_length_public_key,
-//        OQS_SIG_falcon_1024_length_public_key,
-        OQS_SIG_falcon_padded_1024_length_public_key,
-        OQS_SIG_mayo_1_length_public_key,
-        OQS_SIG_mayo_2_length_public_key,
-        OQS_SIG_mayo_3_length_public_key,
-        OQS_SIG_mayo_5_length_public_key,
-        OQS_SIG_cross_rsdp_128_balanced_length_public_key,
-        OQS_SIG_cross_rsdp_128_fast_length_public_key,
-        OQS_SIG_cross_rsdp_128_small_length_public_key,
-        OQS_SIG_cross_rsdp_192_balanced_length_public_key,
-        OQS_SIG_cross_rsdp_192_fast_length_public_key,
-        OQS_SIG_cross_rsdp_192_small_length_public_key,
-        OQS_SIG_cross_rsdp_256_balanced_length_public_key,
-        OQS_SIG_cross_rsdp_256_fast_length_public_key,
-        OQS_SIG_cross_rsdp_256_small_length_public_key,
-        OQS_SIG_cross_rsdpg_128_balanced_length_public_key,
-        OQS_SIG_cross_rsdpg_128_fast_length_public_key,
-        OQS_SIG_cross_rsdpg_128_small_length_public_key,
-        OQS_SIG_cross_rsdpg_192_balanced_length_public_key,
-        OQS_SIG_cross_rsdpg_192_fast_length_public_key,
-        OQS_SIG_cross_rsdpg_192_small_length_public_key,
-        OQS_SIG_cross_rsdpg_256_balanced_length_public_key,
-        OQS_SIG_cross_rsdpg_256_fast_length_public_key,
-        OQS_SIG_cross_rsdpg_256_small_length_public_key,
-        OQS_SIG_uov_ov_Is_length_public_key,
-        OQS_SIG_uov_ov_Ip_length_public_key,
-        OQS_SIG_uov_ov_III_length_public_key,
-        OQS_SIG_uov_ov_V_length_public_key,
-        OQS_SIG_uov_ov_Is_pkc_length_public_key,
-        OQS_SIG_uov_ov_Ip_pkc_length_public_key,
-        OQS_SIG_uov_ov_III_pkc_length_public_key,
-        OQS_SIG_uov_ov_V_pkc_length_public_key,
-        OQS_SIG_uov_ov_Is_pkc_skc_length_public_key,
-        OQS_SIG_uov_ov_Ip_pkc_skc_length_public_key,
-        OQS_SIG_uov_ov_III_pkc_skc_length_public_key,
-        OQS_SIG_uov_ov_V_pkc_skc_length_public_key,
-        OQS_SIG_snova_SNOVA_24_5_4_length_public_key,
-        OQS_SIG_snova_SNOVA_24_5_4_SHAKE_length_public_key,
-        OQS_SIG_snova_SNOVA_24_5_4_esk_length_public_key,
-        OQS_SIG_snova_SNOVA_24_5_4_SHAKE_esk_length_public_key,
-        OQS_SIG_snova_SNOVA_37_17_2_length_public_key,
-        OQS_SIG_snova_SNOVA_25_8_3_length_public_key,
-        OQS_SIG_snova_SNOVA_56_25_2_length_public_key,
-        OQS_SIG_snova_SNOVA_49_11_3_length_public_key,
-        OQS_SIG_snova_SNOVA_37_8_4_length_public_key,
-        OQS_SIG_snova_SNOVA_24_5_5_length_public_key,
-        OQS_SIG_snova_SNOVA_60_10_4_length_public_key,
-        OQS_SIG_snova_SNOVA_29_6_5_length_public_key
-	};
+	size_t *pubkey_len = NULL;
+	size_t count = 0;
+	size_t i;
 	uint8_t sid[32];
 	FILE *fd = NULL;
 	MTLLIB_BUFFER *pubkey_buffer = NULL;
-	
+
+	/* Determine the number of schemes and obtain each public key length at
+	   runtime.  The compile-time OQS_SIG_*_length_public_key macros are not
+	   available for schemes that are disabled in this liboqs build. */
+	while (sig_algos[count].name != NULL) {
+		count++;
+	}
+	pubkey_len = calloc(count, sizeof(size_t));
+	assert(pubkey_len != NULL);
+	for (i = 0; i < count; i++) {
+		OQS_SIG *s = OQS_SIG_new(sig_algos[i].scheme_str);
+		if (s != NULL) {
+			pubkey_len[i] = s->length_public_key;
+			OQS_SIG_free(s);
+		} else {
+			pubkey_len[i] = 0;
+		}
+	}
+
 	// OV Keys are very large so it is best to allocate heap space not stack space for test.
-	pubkey = calloc(1, OQS_SIG_uov_ov_V_length_public_key);
+	pubkey = calloc(1, 4096);
 	assert(pubkey != NULL);
 	memset(&sid[0], 0x55, 32);
 	memset(pubkey, 0xaf, 4096);
 	// Setup to get random data for the test pubkey
 	if ((fd = fopen("/dev/random", "r")) == NULL) {
+		free(pubkey_len);
 		free(pubkey);
 		return 1;
 	}
@@ -311,6 +275,11 @@ uint8_t mtltest_mtllib_pubkey_from_buffer(void)
 	algo = 0;
 	while (sig_algos[algo].name != NULL)
 	{
+		/* Skip algorithms that are not enabled in this liboqs build */
+		if (pubkey_len[algo] == 0) {
+			algo++;
+			continue;
+		}
 		fread(pubkey, 128, 1, fd);
 		ctx = NULL;
 		assert(mtllib_buffer_initialize(&pubkey_buffer, pubkey_len[algo], pubkey) == MTLLIB_OK);
@@ -327,6 +296,7 @@ uint8_t mtltest_mtllib_pubkey_from_buffer(void)
 		algo++;
 		mtllib_buffer_free(pubkey_buffer);
 	}
+	free(pubkey_len);
 	fclose(fd);	
 	free(pubkey);
 
